@@ -1,0 +1,256 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Mini Blog</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 30px auto;
+            padding: 0 15px;
+            background: #f5f8fa;
+            color: #222;
+        }
+        input, textarea, button, select {
+            width: 100%;
+            padding: 10px;
+            margin: 6px 0;
+            box-sizing: border-box;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        input, textarea, select {
+            border: 1px solid #ccc;
+            background: white;
+            outline: none;
+        }
+            input:focus,
+            textarea:focus,
+            select:focus {
+                border-color: #1da1f2;
+            }
+        textarea {
+            height: 90px;
+            resize: vertical;
+        }
+        button {
+            width: auto;
+            cursor: pointer;
+            border: none;
+            background: #1da1f2;
+            color: white;
+            padding: 9px 18px;
+            font-weight: bold;
+        }
+            button:hover {
+                background: #168ad4;
+            }
+        .card {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 12px;
+            border: 1px solid #e1e8ed;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+        }
+        .row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+        .muted {
+            color: #657786;
+            font-size: 12px;
+        }
+        #login {
+            margin-top: 80px;
+            text-align: center;
+        }
+            #login h3 {
+                color: #1da1f2;
+                font-size: 25px;
+            }
+            #login h4 {
+                color: #555;
+            }
+        #app {
+            display: none;
+        }
+        #me {
+            font-size: 18px;
+            color: #1da1f2;
+        }
+        #search {
+            margin-top: 20px;
+            border-radius: 25px;
+            padding: 12px 18px;
+        }
+        #userList .card {
+            transition: 0.2s;
+        }
+            #userList .card:hover {
+                transform: translateY(-2px);
+            }
+        #userList button {
+            background: #1da1f2;
+            border-radius: 20px;
+        }
+            #userList button:hover {
+                background: #168ad4;
+            }
+        #postText {
+            border-radius: 10px;
+        }
+        .like-btn {
+            width: auto;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 4px 8px;
+            color: #657786;
+        }
+            .like-btn:hover {
+                background: #ffeef2;
+                color: #e0245e;
+            }
+            .like-btn.liked {
+                color: #e0245e;
+            }
+        hr {
+            border: none;
+            border-top: 1px solid #eee;
+            margin: 20px 0;
+        }
+        h4 {
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div id="login" class="card">
+        <h3>Log in</h3>
+        <select id="userSelect"></select>
+        <button onclick="login()">Log in</button>
+        <hr>
+        <h4>New account</h4>
+        <input id="newName" placeholder="Your name">
+        <button onclick="createUser()">Create & log in</button>
+    </div>
+    <div id="app">
+        <div class="row">
+            <b id="me"></b>
+            <button onclick="logout()">Log out</button>
+        </div>
+        <input id="search" placeholder="Search users..." oninput="renderUsers()">
+        <div id="userList"></div>
+        <h4>New post</h4>
+        <textarea id="postText" placeholder="What's happening?"></textarea>
+        <button onclick="addPost()">Post</button>
+        <h4>Feed</h4>
+        <div id="feed"></div>
+    </div>
+    <script>
+let users = [
+  {id:1, name:"Madhura"},
+  {id:2, name:"Manju"},
+  {id:3, name:"Shakthi"}
+];
+let follows = {1:[2], 2:[], 3:[1]};
+let posts = [
+  {id:1, user:2, text:"Hello world!", time:Date.now()-100000, likes:[]},
+  {id:2, user:1, text:"Working on something new.", time:Date.now()-50000, likes:[]}
+];
+let nextPostId = 3;
+let currentUser = null;
+function findUser(id){ return users.find(u => u.id === id); }
+function refreshUserSelect(){
+  document.getElementById('userSelect').innerHTML =
+    users.map(u => `<option value="${u.id}">${u.name}</option>`).join('');
+}
+function login(){
+  currentUser = Number(document.getElementById('userSelect').value);
+  showApp();
+}
+function createUser(){
+  const name = document.getElementById('newName').value.trim();
+  if(!name) return alert("Enter a name");
+  const id = Date.now();
+  users.push({id, name});
+  follows[id] = [];
+  currentUser = id;
+  showApp();
+}
+function logout(){
+  currentUser = null;
+  document.getElementById('login').style.display = 'block';
+  document.getElementById('app').style.display = 'none';
+  refreshUserSelect();
+}
+function showApp(){
+  document.getElementById('login').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('me').textContent = "Logged in as " + findUser(currentUser).name;
+  renderUsers();
+  renderFeed();
+}
+function toggleFollow(id){
+  const list = follows[currentUser];
+  const i = list.indexOf(id);
+  if(i === -1) list.push(id); else list.splice(i,1);
+  renderUsers();
+  renderFeed();
+}
+function renderUsers(){
+  const q = document.getElementById('search').value.toLowerCase();
+  const list = users.filter(u => u.id !== currentUser && u.name.toLowerCase().includes(q));
+  document.getElementById('userList').innerHTML = list.map(u => {
+    const following = follows[currentUser].includes(u.id);
+    const followers = users.filter(o => follows[o.id]?.includes(u.id)).length;
+    return `<div class="card row">
+      <div>${u.name} <span class="muted">(${follows[u.id].length} following, ${followers} followers)</span></div>
+      <button onclick="toggleFollow(${u.id})">${following ? "Unfollow" : "Follow"}</button>
+    </div>`;
+  }).join('') || '<p class="muted">No users found.</p>';
+}
+function addPost(){
+  const text = document.getElementById('postText').value.trim();
+  if(!text) return;
+  posts.push({id: nextPostId++, user: currentUser, text, time: Date.now(), likes:[]});
+  document.getElementById('postText').value = '';
+  renderFeed();
+}
+function toggleLike(id){
+  const post = posts.find(p => p.id === id);
+  const i = post.likes.indexOf(currentUser);
+  if(i === -1) post.likes.push(currentUser); else post.likes.splice(i,1);
+  renderFeed();
+}
+function renderFeed(){
+  const visible = [currentUser, ...follows[currentUser]];
+  const items = posts.filter(p => visible.includes(p.user)).sort((a,b) => b.time - a.time);
+  document.getElementById('feed').innerHTML = items.map(p => {
+    const liked = p.likes.includes(currentUser);
+    return `
+    <div class="card">
+      <b>${findUser(p.user).name}</b>
+      <div>${p.text}</div>
+      <div class="row">
+        <span class="muted">${new Date(p.time).toLocaleTimeString()}</span>
+        <button class="like-btn ${liked ? 'liked' : ''}" onclick="toggleLike(${p.id})">
+          ${liked ? '❤️ liked' : '❤️ like'} ${p.likes.length}
+        </button>
+      </div>
+    </div>`;
+  }).join('') || '<p class="muted">No posts yet. Follow someone!</p>';
+}
+refreshUserSelect();
+    </script>
+</body>
+</html>
+
